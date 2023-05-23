@@ -38,11 +38,16 @@ def nyuton(table):
     x_plot = np.arange(table[0][0], table[0][-1], 0.1)
     y_plot = [nyuton_func(N, i) for i in x_plot]
 
-    print(table_n)
+    for i in range(len(x_plot)):
+        print(f"Значению X: {x_plot[i]} соответсвует значение Y: {y_plot[i]}")
+
+    print(f"\nТаблица разностей: \n{table_n}")
 
     plt.plot(x_plot, y_plot, label='Многочлен Ньютона')
     plt.scatter(table[0], table[1], label='Точки графика')
     plt.show()
 
 
-nyuton(devtools.table)
+if __name__ == "__main__":
+    table = devtools.table_dev
+    nyuton(table)

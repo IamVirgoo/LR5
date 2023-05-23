@@ -1,53 +1,69 @@
 from matplotlib import pyplot as plt
-from sympy import *
 import numpy as np
-import devtools
+from sympy import *
 
 
-def function(arg, a, b):
+def f(arg):
     x = Symbol('x')
-    return ((ln(x)) ** (a / b) * sin(x)).subs(x, arg)
+    #return ((ln(x))**(13/4)*sin(3*x)).subs(x, arg)
+    return np.sin(np.pi * arg)
 
 
-def N_func(N, arg):
-    x = Symbol('x')
-    return N.subs(x, arg)
+def create_grid(c, d, m, n, f):
+    # Найдем длину каждого подотрезка
+    delta_x = (d - c) / n
 
+    # Создадим список узлов сетки
+    grid_nodes = [c + i * delta_x for i in range(n + 1)]
 
-def splain(n, m, c, d, a_, b_):
-    m *= n
+    # Разобьем этот список на n списков по m элементов в каждом
+    grid = [[grid_nodes[j + i * n] for j in range(m)] for i in range(n)]
 
-    h = (d - c) / (m)
-    ind = [i for i in np.arange(c, d + h / 2, h)]
-    table = [[0 for i in range(m + 1)] for i in range(2)]
-    table[0] = ind
-    for i in range(m + 1):
-        table[1][i] = function(table[0][i], a_, b_)
+    # Вычислим значения функции f(x) в узлах сетки
+    values = [[f(x) for x in row] for row in grid]
 
-    a = [table[1][i] for i in range(m)]
-    b = [0 for i in range(m)]
-    for i in range(m - 1):
-        b[i + 1] = 2 * (table[1][i + 1] - table[1][i]) / h - b[i]
-    C = [(b[i + 1] - b[i]) / (2 * h) for i in range(m - 1)]
-    C.append((table[1][m] - table[1][m - 1]) / h ** 2 - b[m - 1] / h)
+    # Построим интерполяционные квадратические сплайны
+    splines = []
+    for i in range(n - 1):
+        for j in range(m - 2):
+            x1, x2, x3 = grid[i][j], grid[i][j + 1], grid[i + 1][j + 1]
+            y1, y2, y3 = values[i][j], values[i][j + 1], values[i + 1][j + 1]
 
-    for i in range(m):
-        x = Symbol('x')
-        N = a[i] + b[i] * (x - table[0][i]) + C[i] * (x - table[0][i]) ** 2
-        x_plot = np.arange(c + i * h, c + i * h + h, 0.01)
-        y_plot = [N_func(N, i) for i in x_plot]
-        plt.plot(x_plot, y_plot)
+            a = (y1 - 2 * y2 + y3) / ((x1 - x2) ** 2 - 2 * (x2 - x3) ** 2 + (x3 - x1) ** 2)
+            b = (y3 - y2) / (x3 - x2) - a * (x3 + x2)
+            c = y2 - a * x2 ** 2 - b * x2
 
-    x_plot = np.arange(c, d, 0.01)
-    y_plot = [function(i, a_, b_) for i in x_plot]
+            splines.append((a, b, c, x2, x3))
 
-    plt.plot(x_plot, y_plot, label='График заданной функции')
-    plt.scatter(ind, [function(i, a_, b_) for i in ind], label='Точки графика')
-    plt.legend(fontsize=8)
+    # Построим график функции
+    x = [c + i * (d - c) / 100 for i in range(101)]
+    y = [f(xi) for xi in x]
+    plt.plot(x, y, 'r-', label='f(x)')
+
+    # Построим интерполяционный сплайн
+    for spline in splines:
+        a, b, c, x1, x2 = spline
+        xs = [x for x in grid[0] if x >= x1 and x <= x2]
+        ys = [a * x ** 2 + b * x + c for x in xs]
+        plt.plot(xs, ys, 'b-', label='Spline')
+
+    # Отобразим график
+    plt.legend()
     plt.show()
 
+    return grid, values, splines
 
-if __name__ == "__main__":
-    data = devtools.data
-    table = devtools.table
-    splain(data["n"], data["m"], data["c"], data["d"], data["a"], data["b"])
+
+grid, values, splines = create_grid(0, 4, 4, 3, f)
+
+print('Сетка:')
+for row in grid:
+    print(row)
+
+print('Значения функции в узлах сетки:')
+for row in values:
+    print(row)
+
+print('Квадратичные сплайны:')
+for spline in splines:
+    print(f'({spline[0]:.2f})x^2 + ({spline[1]:.2f})x + ({spline[2]:.2f}) на [{spline[3]:.2f}, {spline[4]:.2f}]')
